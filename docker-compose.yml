@@ -1,0 +1,53 @@
+# Stack Tuleap Community Edition + MySQL 8.4
+# Les secrets sont fournis par des variables d'environnement (voir .env.example).
+# Dans Portainer : Stacks > Web editor, puis section "Environment variables"
+# (ou "Load variables from .env file").
+
+services:
+  tuleap:
+    image: tuleap/tuleap-community-edition
+    container_name: TULEAP
+    hostname: ${TULEAP_FQDN:-tuleap.jo.priv}
+    restart: always
+    networks:
+      - Docker_Net
+    depends_on:
+      tuleap-db:
+        condition: service_healthy
+    ports:
+      - ${TULEAP_SSH_PORT:-2220}:22
+    volumes:
+      - ${TULEAP_DATA_DIR:-/volume2/docker/tuleap/data}:/data
+    environment:
+      - TULEAP_FQDN=${TULEAP_FQDN:-tuleap.jo.priv}
+      - TULEAP_SYS_DBHOST=tuleap-db
+      - TULEAP_SYS_DBPASSWD=${TULEAP_SYS_DBPASSWD:?TULEAP_SYS_DBPASSWD requis}
+      - SITE_ADMINISTRATOR_PASSWORD=${SITE_ADMINISTRATOR_PASSWORD:?SITE_ADMINISTRATOR_PASSWORD requis}
+      - DB_ADMIN_USER=root
+      - DB_ADMIN_PASSWORD=${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requis}
+      # Relais SMTP (optionnel, voir README section 6)
+      # - TULEAP_EMAIL_TRANSPORT=smtp
+      # - TULEAP_EMAIL_RELAYHOST=${TULEAP_EMAIL_RELAYHOST}
+      # - TULEAP_SYS_EMAIL_ADMIN=${TULEAP_SYS_EMAIL_ADMIN}
+
+  tuleap-db:
+    image: mysql:8.4
+    container_name: TULEAP-DB
+    restart: always
+    networks:
+      - Docker_Net
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requis}
+    healthcheck:
+      # $$ : la variable est évaluée dans le conteneur, pas par Compose
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - ${TULEAP_DB_DIR:-/volume2/docker/tuleap/db}:/var/lib/mysql
+
+networks:
+  Docker_Net:
+    external: true
